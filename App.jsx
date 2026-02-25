@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 
 // BYMA tick = $0.25
@@ -173,29 +172,29 @@ export default function App() {
   const fxExtra = parseFloat(fxExtraSpread) || 0;
 
   // Broker-adjusted FX: widen by ARS amount to broker's favor
-  // Venta cliente → broker paga USD al Bid → broker baja el bid (paga menos USD)
-  // Compra cliente → cliente paga USD al Ask → broker sube el ask (cobra más USD)
+  // Venta cliente → cliente recibe ARS, compra USD al Ask → broker sube el ask (cobra más)
+  // Compra cliente → cliente vende USD al Bid → broker baja el bid (paga menos)
   const brokerBid = bid - fxExtra;
   const brokerAsk = ask + fxExtra;
 
   // === ARS → USD (broker perspective, using broker-adjusted FX) ===
-  // Venta cliente: broker vende en mercado a pV, recibe ARS - fees, paga USD al cliente al brokerBid
+  // Venta cliente: vende acción, recibe ARS - fees, convierte a USD al Ask
   const ventaAllInARS = pV * (1 - fee);
-  const ventaAllInUSD = ventaAllInARS / brokerBid;
-  // Compra cliente: broker compra en mercado a pC, paga ARS + fees, cliente paga USD al brokerAsk
+  const ventaAllInUSD = ventaAllInARS / brokerAsk;
+  // Compra cliente: compra acción, paga ARS + fees, convierte desde USD al Bid
   const compraAllInARS = pC * (1 + fee);
-  const compraAllInUSD = compraAllInARS / brokerAsk;
+  const compraAllInUSD = compraAllInARS / brokerBid;
 
   // === USD → ARS (reverse, broker perspective) ===
-  // Compra: max ARS = target * ask / (1+fee) → round down
-  const maxCompraRaw = tC * ask / (1 + fee);
+  // Compra: cliente vende USD al Bid → max ARS = target * bid / (1+fee) → round down
+  const maxCompraRaw = tC * bid / (1 + fee);
   const maxCompraARS = roundDown(maxCompraRaw);
-  const maxCompraActualUSD = maxCompraARS * (1 + fee) / ask;
+  const maxCompraActualUSD = maxCompraARS * (1 + fee) / bid;
 
-  // Venta: min ARS = target * bid / (1-fee) → round up
-  const minVentaRaw = tV * bid / (1 - fee);
+  // Venta: cliente compra USD al Ask → min ARS = target * ask / (1-fee) → round up
+  const minVentaRaw = tV * ask / (1 - fee);
   const minVentaARS = roundUp(minVentaRaw);
-  const minVentaActualUSD = minVentaARS * (1 - fee) / bid;
+  const minVentaActualUSD = minVentaARS * (1 - fee) / ask;
 
   const hasV = modo === "ars" ? pV > 0 : tV > 0;
   const hasC = modo === "ars" ? pC > 0 : tC > 0;
@@ -360,7 +359,7 @@ export default function App() {
                 <span style={{ fontSize: 11, color: "#555" }}>${fmt(ventaAllInARS)} ARS (neto)</span>
                 <span style={{ fontSize: 11, color: "#555" }}>${fmt(pV)} ARS (nominal)</span>
               </div>
-              {fxExtra > 0 && <div style={{ fontSize: 10, color: "#38bdf8", marginTop: 3 }}>FX Bid broker: {fmt(brokerBid, 2)} (mercado: {fmt(bid, 2)})</div>}
+              {fxExtra > 0 && <div style={{ fontSize: 10, color: "#38bdf8", marginTop: 3 }}>FX Ask broker: {fmt(brokerAsk, 2)} (mercado: {fmt(ask, 2)})</div>}
             </div>
           )}
 
@@ -384,7 +383,7 @@ export default function App() {
                 <span style={{ fontSize: 11, color: "#555" }}>${fmt(compraAllInARS)} ARS (neto)</span>
                 <span style={{ fontSize: 11, color: "#555" }}>${fmt(pC)} ARS (nominal)</span>
               </div>
-              {fxExtra > 0 && <div style={{ fontSize: 10, color: "#38bdf8", marginTop: 3 }}>FX Ask broker: {fmt(brokerAsk, 2)} (mercado: {fmt(ask, 2)})</div>}
+              {fxExtra > 0 && <div style={{ fontSize: 10, color: "#38bdf8", marginTop: 3 }}>FX Bid broker: {fmt(brokerBid, 2)} (mercado: {fmt(bid, 2)})</div>}
             </div>
           )}
 
@@ -518,7 +517,7 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Precio nominal{pV !== pVraw ? " (tick ↓)" : ""}</span><span style={{ color: "#888" }}>${fmt(pV)} ARS{pV !== pVraw ? ` (ingresado: ${fmt(pVraw)})` : ""}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Fees ({fmt(feeBps, 0)} bps)</span><span style={{ color: "#f8717166" }}>−${fmt(pV * fee)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Neto ARS</span><span style={{ color: "#888" }}>${fmt(ventaAllInARS)} ARS</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Bid {fxExtra > 0 ? `${fmt(brokerBid, 2)} (broker)` : fmt(bid, 2)}</span><span>${fmt(ventaAllInUSD, 4)} USD</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Ask {fxExtra > 0 ? `${fmt(brokerAsk, 2)} (broker)` : fmt(ask, 2)}</span><span>${fmt(ventaAllInUSD, 4)} USD</span></div>
                         {hasSpread && <div style={{ display: "flex", justifyContent: "space-between", color: "#fbbf24" }}><span>− Spread broker ({spreadMode === "pct" ? fmt(bSpreadPct * 100, 4) + "%" : "$" + fmt(bSpreadUSD, 4)})</span><span>→ ${fmt(clientPriceVentaUSD, 4)} USD al cliente</span></div>}
                       </>
                     )}
@@ -529,7 +528,7 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Precio nominal{pC !== pCraw ? " (tick ↑)" : ""}</span><span style={{ color: "#888" }}>${fmt(pC)} ARS{pC !== pCraw ? ` (ingresado: ${fmt(pCraw)})` : ""}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Fees ({fmt(feeBps, 0)} bps)</span><span style={{ color: "#4ade8066" }}>+${fmt(pC * fee)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Costo ARS</span><span style={{ color: "#888" }}>${fmt(compraAllInARS)} ARS</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Ask {fxExtra > 0 ? `${fmt(brokerAsk, 2)} (broker)` : fmt(ask, 2)}</span><span>${fmt(compraAllInUSD, 4)} USD</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Bid {fxExtra > 0 ? `${fmt(brokerBid, 2)} (broker)` : fmt(bid, 2)}</span><span>${fmt(compraAllInUSD, 4)} USD</span></div>
                         {hasSpread && <div style={{ display: "flex", justifyContent: "space-between", color: "#fbbf24" }}><span>+ Spread broker ({spreadMode === "pct" ? fmt(bSpreadPct * 100, 4) + "%" : "$" + fmt(bSpreadUSD, 4)})</span><span>→ ${fmt(clientPriceCompraUSD, 4)} USD al cliente</span></div>}
                       </>
                     )}
@@ -542,7 +541,7 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Precio exacto</span><span style={{ color: "#555" }}>${fmt(minVentaRaw)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tick BYMA (↑$0.25)</span><span style={{ color: "#aaa" }}>${fmt(minVentaARS)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>− Fees ({fmt(feeBps, 0)} bps)</span><span style={{ color: "#f8717166" }}>−${fmt(minVentaARS * fee)} ARS</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Bid {fmt(bid, 2)}</span><span>= ${fmt(minVentaActualUSD, 4)} USD</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Ask {fmt(ask, 2)}</span><span>= ${fmt(minVentaActualUSD, 4)} USD</span></div>
                       </>
                     )}
                     {hasV && hasC && <div style={{ height: 1, background: "#1c1c1c", margin: "4px 0" }} />}
@@ -552,7 +551,7 @@ export default function App() {
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Precio exacto</span><span style={{ color: "#555" }}>${fmt(maxCompraRaw)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tick BYMA (↓$0.25)</span><span style={{ color: "#aaa" }}>${fmt(maxCompraARS)} ARS</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span>+ Fees ({fmt(feeBps, 0)} bps)</span><span style={{ color: "#4ade8066" }}>+${fmt(maxCompraARS * fee)} ARS</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Ask {fmt(ask, 2)}</span><span>= ${fmt(maxCompraActualUSD, 4)} USD</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", color: "#aaa", fontWeight: 600 }}><span>÷ FX Bid {fmt(bid, 2)}</span><span>= ${fmt(maxCompraActualUSD, 4)} USD</span></div>
                       </>
                     )}
                   </>
